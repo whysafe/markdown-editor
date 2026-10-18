@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Черновик — редактор Markdown</title>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#fffdf8;--ink:#23201b;--muted:#8b8478;--line:#e6e0d4;--accent:#9d3a1f;--code:#f4efe4}
+[data-theme=dark]{--paper:#1d1b18;--ink:#e9e3d6;--muted:#8f887b;--line:#36322b;--accent:#e08a5f;--code:#2a2621}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{display:grid;grid-template-rows:auto 1fr auto;background:var(--paper);color:var(--ink);font:18px/1.7 Spectral,Georgia,serif}
+header{display:flex;align-items:center;gap:6px;padding:10px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header strong{font-style:italic;font-weight:600;font-size:20px;margin-right:14px}
+.tb{background:none;border:1px solid transparent;color:var(--ink);font:inherit;font-size:15px;padding:3px 9px;border-radius:4px;cursor:pointer}
+.tb:hover{border-color:var(--line)}
+.sp{flex:1}
+main{display:grid;grid-template-columns:1fr 1fr;min-height:0}
+textarea{border:0;outline:0;resize:none;padding:32px 36px;background:transparent;color:var(--ink);font:15px/1.75 "JetBrains Mono",Consolas,monospace;border-right:1px solid var(--line);tab-size:2}
+#preview{overflow:auto;padding:32px 48px}
+#preview>*{max-width:68ch}
+#preview h1{font-size:2.3em;line-height:1.15;margin:.2em 0 .4em;font-weight:600}
+#preview h2{font-size:1.5em;margin:1.4em 0 .4em;font-weight:600}
+#preview h3{font-size:1.2em;margin:1.2em 0 .3em}
+#preview a{color:var(--accent)}
+#preview blockquote{margin:1em 0;padding:.1em 1.2em;border-left:3px solid var(--accent);font-style:italic;color:var(--muted)}
+#preview code{font:.85em "JetBrains Mono",monospace;background:var(--code);padding:.1em .35em;border-radius:3px}
+#preview pre{background:var(--code);padding:14px 18px;overflow:auto;border-radius:4px}
+#preview pre code{background:none;padding:0}
+#preview table{border-collapse:collapse;font-size:.92em}
+#preview th,#preview td{border-bottom:1px solid var(--line);padding:6px 14px 6px 0;text-align:left}
+#preview img{max-width:100%}
+#preview hr{border:0;border-top:1px solid var(--line);margin:2em 0}
+#preview li.task{list-style:none;margin-left:-1.3em}
+footer{display:flex;gap:20px;padding:6px 18px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);font-family:"JetBrains Mono",monospace}
+body.focus main{grid-template-columns:1fr}body.focus #preview{display:none}
+body.read main{grid-template-columns:1fr}body.read textarea{display:none}body.read #preview{padding:48px max(48px,calc(50% - 34ch))}
+@media(max-width:760px){main{grid-template-columns:1fr}#preview{display:none}body.read #preview{display:block}body.read textarea{display:none}}
+@media print{header,footer,textarea{display:none!important}main{display:block}#preview{padding:0}}
+</style>
+</head>
+<body>
+<header>
+  <strong>Черновик</strong>
+  <button class="tb" data-wrap="**" title="Ctrl+B"><b>Ж</b></button>
+  <button class="tb" data-wrap="*" title="Ctrl+I"><i>К</i></button>
+  <button class="tb" data-wrap="`" title="Код">&lt;/&gt;</button>
+  <button class="tb" data-line="## " title="Заголовок">H</button>
+  <button class="tb" data-line="- " title="Список">•</button>
+  <button class="tb" data-line="> " title="Цитата">❝</button>
+  <button class="tb" id="link" title="Ссылка (Ctrl+K)">🔗</button>
+  <span class="sp"></span>
+  <button class="tb" data-view="split">Две колонки</button>
+  <button class="tb" data-view="focus">Только текст</button>
+  <button class="tb" data-view="read">Чтение</button>
+  <button class="tb" id="theme" aria-label="Тема">◐</button>
+  <button class="tb" id="dlMd">.md</button>
+  <button class="tb" id="dlHtml">.html</button>
+  <label class="tb">Открыть<input type="file" id="open" accept=".md,.txt,text/markdown" hidden></label>
+</header>
+<main>
+  <textarea id="src" spellcheck="true" aria-label="Текст в Markdown"></textarea>
+  <article id="preview" aria-label="Предпросмотр"></article>
+</main>
+<footer><span id="words">0 слов</span><span id="read">~0 мин чтения</span><span id="saved">сохранено</span></footer>
+<script src="md.js"></script>
+<script>
+var src = document.getElementById('src'), preview = document.getElementById('preview');
+var SAMPLE = '# Заметки к проекту\n\nЭто **редактор Markdown**, который работает прямо в браузере. Текст *сохраняется сам*, можно закрыть вкладку.\n\n## Что поддерживается\n\n- Заголовки, списки и цитаты\n- `код в строке` и блоки кода\n- [Ссылки](https://example.com) и таблицы\n- [x] Задачи с галочками\n- [ ] Ещё не сделано\n\n> Пиши так, будто объясняешь другу.\n\n```js\nconst sum = (a, b) => a + b\n```\n\n| Горячая клавиша | Действие |\n|---|---|\n| Ctrl+B | жирный |\n| Ctrl+I | курсив |\n| Ctrl+K | ссылка |\n| Ctrl+S | скачать .md |\n';
+// localStorage может быть недоступен (приватный режим, запрет cookies), поэтому все обращения через try/catch
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
+src.value = lsGet('md-draft') || SAMPLE;
+
+var saveTimer;
+function render() {
+  preview.innerHTML = Markdown.parse(src.value).html;
+  var words = (src.value.match(/[\wа-яё]+/gi) || []).length;
+  document.getElementById('words').textContent = words + ' слов';
+  document.getElementById('read').textContent = '~' + Math.max(1, Math.round(words / 180)) + ' мин чтения';
+  document.getElementById('saved').textContent = 'печатаю…';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(function () { document.getElementById('saved').textContent = lsSet('md-draft', src.value) ? 'сохранено' : 'не сохранено'; }, 500);
+}
+
+function wrap(mark) {
+  var s = src.selectionStart, e = src.selectionEnd, sel = src.value.slice(s, e) || 'текст';
+  src.setRangeText(mark + sel + mark, s, e, 'select');
+  src.setSelectionRange(s + mark.length, s + mark.length + sel.length);
+  src.focus(); render();
+}
+function linePrefix(p) {
+  var s = src.value.lastIndexOf('\n', src.selectionStart - 1) + 1;
+  src.setRangeText(p, s, s, 'end'); src.focus(); render();
+}
+function link() {
+  var s = src.selectionStart, e = src.selectionEnd, t = src.value.slice(s, e) || 'ссылка';
+  src.setRangeText('[' + t + '](https://)', s, e, 'end');
+  src.setSelectionRange(s + t.length + 3, s + t.length + 11); src.focus(); render();
+}
+function download(name, text, type) {
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: type }));
+  a.download = name; a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+}
+function title() { var m = src.value.match(/^#\s+(.+)/m); return (m ? m[1] : 'заметка').replace(/[\\/:*?"<>|]/g, '').slice(0, 60); }
+
+document.querySelector('header').addEventListener('click', function (e) {
+  var b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.wrap) wrap(b.dataset.wrap);
+  if (b.dataset.line) linePrefix(b.dataset.line);
+  if (b.dataset.view) { document.body.className = b.dataset.view === 'split' ? '' : b.dataset.view; lsSet('md-view', document.body.className); }
+});
+document.getElementById('link').onclick = link;
+document.getElementById('theme').onclick = function () {
+  var d = document.documentElement; d.dataset.theme = d.dataset.theme === 'dark' ? '' : 'dark'; lsSet('md-theme', d.dataset.theme);
+};
+document.getElementById('dlMd').onclick = function () { download(title() + '.md', src.value, 'text/markdown'); };
+document.getElementById('dlHtml').onclick = function () {
+  download(title() + '.html', '<!doctype html><meta charset="utf-8"><title>' + title() + '</title><style>body{font:18px/1.7 Georgia,serif;max-width:68ch;margin:3em auto;padding:0 1em}pre,code{background:#f4efe4}pre{padding:1em;overflow:auto}</style>\n' + preview.innerHTML, 'text/html');
+};
+document.getElementById('open').onchange = function (e) {
+  var f = e.target.files[0]; if (!f) return;
+  f.text().then(function (t) { src.value = t; render(); });
+};
+src.addEventListener('input', render);
+src.addEventListener('keydown', function (e) {
+  if (e.key === 'Tab') { e.preventDefault(); src.setRangeText('  ', src.selectionStart, src.selectionEnd, 'end'); render(); }
+  if (!(e.ctrlKey || e.metaKey)) return;
+  var k = e.key.toLowerCase();
+  if (k === 'b' || k === 'и') { e.preventDefault(); wrap('**'); }
+  if (k === 'i' || k === 'ш') { e.preventDefault(); wrap('*'); }
+  if (k === 'k' || k === 'л') { e.preventDefault(); link(); }
+  if (k === 's' || k === 'ы') { e.preventDefault(); download(title() + '.md', src.value, 'text/markdown'); }
+});
+src.addEventListener('scroll', function () {
+  var r = src.scrollTop / Math.max(1, src.scrollHeight - src.clientHeight);
+  preview.scrollTop = r * (preview.scrollHeight - preview.clientHeight);
+});
+document.documentElement.dataset.theme = lsGet('md-theme') || '';
+document.body.className = lsGet('md-view') || '';
+render();
+</script>
+</body>
+</html>
